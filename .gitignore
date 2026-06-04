@@ -1,3 +1,9 @@
 venv/
 __pycache__/
 .DS_Store
+
+# Front-end Ignore
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/.env.local

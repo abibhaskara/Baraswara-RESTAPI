@@ -1,22 +1,28 @@
 from fastapi import FastAPI
-from src.privacy import inject_laplace_noise # Mengimpor fungsi dari modul privacy
+from fastapi.middleware.cors import CORSMiddleware # Tambahkan baris ini
+from src.privacy import inject_laplace_noise
 
 app = FastAPI()
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 @app.get("/")
 def read_root():
-    return {"message": "Sistem Automatic Compliance API Baraswara aktif."}
+    return {"message": "Sistem Automatic Compliance API Baraswara aktif"}
 
+# Menambahkan query parameter 'value'
 @app.get("/data-siswa")
-def get_siswa_stats():
-    data_asli = 50.0 
-    epsilon = 0.1 # Semakin kecil nilai epsilon, semakin kuat privasinya
-
-    # Injeksi noise
-    data_aman = inject_laplace_noise(data_asli, epsilon, sensitivity=1.0)
-
+def get_siswa_stats(value: float = 50.0, epsilon: float = 0.1):
+    # Injeksi noise berdasarkan input pengguna
+    data_aman = inject_laplace_noise(value, epsilon, sensitivity=1.0)
+    
     return {
         "status": "success",
-        "keterangan": "Data telah diproteksi dengan Differential Privacy",
-        "nilai_agregat": round(data_aman, 2)
+        "input_asli": value,
+        "epsilon_digunakan": epsilon,
+        "nilai_agregat_terproteksi": round(data_aman, 2)
     }
