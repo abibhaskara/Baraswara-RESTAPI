@@ -49,12 +49,8 @@ export default function BaraswaraDashboard() {
     return () => clearTimeout(timeoutId);
   }, [rawValue, epsilon, refreshTrigger]);
 
-  // ==========================================
-  // MODIFIKASI: FUNGSI SIMPAN & ACAK OTOMATIS
-  // ==========================================
   const handleSaveLog = () => {
     const now = new Date();
-    // Tambahkan milidetik agar terlihat lebih teknis dan cepat
     const timeString = `${now.toLocaleTimeString('id-ID', { hour12: false })}.${now.getMilliseconds().toString().padStart(3, '0')}`;
     
     const newLog = {
@@ -65,10 +61,8 @@ export default function BaraswaraDashboard() {
       secure: result.secure
     };
     
-    // 1. Simpan data ke tabel (gunakan prevLogs agar aman jika tombol di-spam klik)
     setLogs(prevLogs => [newLog, ...prevLogs]);
-    
-    // 2. OTOMATIS tembak ulang API Python untuk menghasilkan data baru!
+
     setRefreshTrigger(prev => prev + 1);
   };
 
