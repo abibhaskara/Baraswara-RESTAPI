@@ -1,3 +1,4 @@
+// TES GIT BARASWARA
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -7,26 +8,26 @@ export default function BaraswaraDashboard() {
   const [epsilon, setEpsilon] = useState(1.0);
   const [rawValue, setRawValue] = useState(85);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
-  
-  const [result, setResult] = useState({ 
-    raw: 85, 
-    noise: "0.00", 
+
+  const [result, setResult] = useState({
+    raw: 85,
+    noise: "0.00",
     secure: 85,
-    status: "MENUNGGU..." 
+    status: "MENUNGGU..."
   });
 
-  const [logs, setLogs] = useState<{time: string, eps: string, raw: number, noise: string, secure: number}[]>([]);
+  const [logs, setLogs] = useState<{ time: string, eps: string, raw: number, noise: string, secure: number }[]>([]);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         setResult(prev => ({ ...prev, status: "MEMPROSES..." }));
-        
+
         const response = await fetch(`http://127.0.0.1:8000/data-siswa?value=${rawValue}&epsilon=${epsilon}`, {
           cache: 'no-store'
         });
         const data = await response.json();
-        
+
         const secureVal = data.nilai_agregat_terproteksi;
         const noiseCalc = (secureVal - rawValue).toFixed(2);
         const formattedNoise = parseFloat(noiseCalc) > 0 ? `+${noiseCalc}` : noiseCalc;
@@ -52,7 +53,7 @@ export default function BaraswaraDashboard() {
   const handleSaveLog = () => {
     const now = new Date();
     const timeString = `${now.toLocaleTimeString('id-ID', { hour12: false })}.${now.getMilliseconds().toString().padStart(3, '0')}`;
-    
+
     const newLog = {
       time: timeString,
       eps: epsilon.toFixed(2),
@@ -60,7 +61,7 @@ export default function BaraswaraDashboard() {
       noise: result.noise,
       secure: result.secure
     };
-    
+
     setLogs(prevLogs => [newLog, ...prevLogs]);
 
     setRefreshTrigger(prev => prev + 1);
@@ -69,7 +70,7 @@ export default function BaraswaraDashboard() {
   return (
     <div className="min-h-screen bg-white text-black font-mono p-3 sm:p-6 flex items-center justify-center">
       <div className="w-full max-w-5xl border-4 border-black p-4 sm:p-6 bg-white space-y-4">
-        
+
         <div className="border-b-4 border-black pb-3 flex flex-wrap items-center justify-between gap-2">
           <div>
             <span className="text-[10px] bg-black text-white px-2 py-0.5 font-bold uppercase tracking-wider">
@@ -82,7 +83,7 @@ export default function BaraswaraDashboard() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-          
+
           <div className="lg:col-span-5 space-y-4">
             <div className="border-2 border-black p-3 bg-white space-y-3">
               <h2 className="text-xs font-black uppercase tracking-wider">
@@ -96,8 +97,8 @@ export default function BaraswaraDashboard() {
                     {epsilon.toFixed(2)}
                   </span>
                 </div>
-                <input 
-                  type="range" min="0.01" max="15.00" step="0.01" 
+                <input
+                  type="range" min="0.01" max="15.00" step="0.01"
                   value={epsilon}
                   onChange={(e) => setEpsilon(parseFloat(e.target.value))}
                   className="w-full accent-black h-2 border-2 border-black appearance-none bg-neutral-200 cursor-pointer"
@@ -125,8 +126,8 @@ export default function BaraswaraDashboard() {
                     {rawValue}
                   </span>
                 </div>
-                <input 
-                  type="range" min="0" max="100" 
+                <input
+                  type="range" min="0" max="100"
                   value={rawValue}
                   onChange={(e) => setRawValue(parseInt(e.target.value))}
                   className="w-full accent-black h-2 border-2 border-black appearance-none bg-neutral-200 cursor-pointer"
@@ -136,7 +137,7 @@ export default function BaraswaraDashboard() {
               <div className="space-y-1">
                 <div className="flex justify-between text-[9px] font-bold uppercase text-black">
                   <span>Kurva Distribusi Derau</span>
-                  <span>b = {(1/epsilon).toFixed(2)}</span>
+                  <span>b = {(1 / epsilon).toFixed(2)}</span>
                 </div>
                 <svg className="w-full h-20 bg-white border-2 border-black rounded-none overflow-hidden" viewBox="0 0 300 80">
                   <line x1="0" y1="40" x2="300" y2="40" stroke="#E5E5E5" strokeWidth="1" />
@@ -147,7 +148,7 @@ export default function BaraswaraDashboard() {
               </div>
 
               <div className="flex gap-2 pt-1">
-                <button 
+                <button
                   onClick={handleSaveLog}
                   className="flex-1 bg-black text-white py-1.5 px-3 font-bold text-xs uppercase flex items-center justify-center gap-1.5 border-2 border-black hover:bg-neutral-800 active:translate-y-0.5 transition-all"
                 >
@@ -160,15 +161,15 @@ export default function BaraswaraDashboard() {
           </div>
 
           <div className="lg:col-span-7 space-y-4">
-            
+
             <div className="border-2 border-black p-3 bg-white space-y-2 relative overflow-hidden">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold uppercase tracking-widest flex items-center gap-2">
                   <span className={`w-2 h-2 ${result.status === "TERKONEKSI" ? "bg-black animate-pulse" : "bg-red-500"} inline-block`} />
                   [ PENGOLAHAN DATA : {result.status} ]
                 </span>
-                
-                <button 
+
+                <button
                   onClick={() => setRefreshTrigger(prev => prev + 1)}
                   className="text-[10px] border-2 border-black px-2 py-1 font-bold flex items-center gap-1.5 hover:bg-neutral-100 active:translate-y-px transition-all uppercase"
                 >
