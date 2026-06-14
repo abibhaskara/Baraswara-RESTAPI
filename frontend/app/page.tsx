@@ -1,16 +1,103 @@
 'use client';
 
 import React, { useState } from 'react';
-import { UploadCloud, FileText, Settings, ShieldCheck, RefreshCw } from 'lucide-react';
+import { UploadCloud, FileText, Settings, ShieldCheck, RefreshCw, AlertCircle } from 'lucide-react';
+
+interface FileMetadata {
+  filename: string;
+  total_rows: number;
+  total_columns: number;
+}
+
+
+interface ColumnRecommendation {
+  column_name: string;
+  semantic_type: string;
+  missing_values: number;
+  recommended_action: 'IGNORE' | 'LAPLACE' | 'RANDOMIZED_RESPONSE' | 'REVIEW';
+}
+
+interface APIResponse {
+  status: 'success';
+  file_metadata: FileMetadata;
+  schema_recommendation: ColumnRecommendation[];
+}
 
 export default function BaraswaraDashboard() {
   const [file, setFile] = useState<File | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [analysisResult, setAnalysisResult] = useState<APIResponse | null>(null);
 
-  // Fungsi simulasi menangkap file CSV yang diunggah
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Fungsi mengunggah file CSV langsung ke backend API
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
-      setFile(e.target.files[0]);
+      const selectedFile = e.target.files[0];
+      setFile(selectedFile);
+      setIsLoading(true);
+      setErrorMsg(null);
+      setAnalysisResult(null);
+
+      const formData = new FormData();
+      formData.append('file', selectedFile);
+
+      try {
+        const response = await fetch('http://localhost:8000/v1/privacy-engine/pre-check', {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (!response.ok) {
+          const errData = await response.json().catch(() => ({}));
+          throw new Error(errData?.detail?.message || `Gagal menganalisis file (${response.status})`);
+        }
+
+        const data: APIResponse = await response.json();
+        setAnalysisResult(data);
+      } catch (err: any) {
+        console.error(err);
+        setErrorMsg(err.message || 'Terjadi kesalahan koneksi ke backend engine.');
+      } finally {
+        setIsLoading(false);
+      }
     }
+  };
+
+  const getActionBadge = (action: ColumnRecommendation['recommended_action']) => {
+    switch (action) {
+      case 'IGNORE':
+        return (
+          <span className="text-xs bg-amber-100 text-amber-800 border border-amber-200 px-2 py-1 rounded font-bold uppercase tracking-wide">
+            Ignore (Abaikan)
+          </span>
+        );
+      case 'LAPLACE':
+        return (
+          <span className="text-xs bg-blue-100 text-blue-800 border border-blue-200 px-2 py-1 rounded font-bold uppercase tracking-wide">
+            Laplace Noise
+          </span>
+        );
+      case 'RANDOMIZED_RESPONSE':
+        return (
+          <span className="text-xs bg-green-100 text-green-800 border border-green-200 px-2 py-1 rounded font-bold uppercase tracking-wide">
+            Randomized Response
+          </span>
+        );
+      case 'REVIEW':
+      default:
+        return (
+          <span className="text-xs bg-red-100 text-red-800 border border-red-200 px-2 py-1 rounded font-bold uppercase tracking-wide">
+            Manual Review
+          </span>
+        );
+    }
+  };
+
+  const getSemanticColor = (type: string) => {
+    if (type.includes('ID')) return 'text-amber-700';
+    if (type.includes('Numeric')) return 'text-blue-700';
+    if (type.includes('Boolean') || type.includes('Categorical')) return 'text-green-700';
+    return 'text-red-700';
   };
 
   return (
@@ -29,6 +116,17 @@ export default function BaraswaraDashboard() {
             Console Mode
           </div>
         </header>
+
+        {/* EROR ALERT */}
+        {errorMsg && (
+          <div className="bg-red-50 border border-red-300 text-red-900 p-4 rounded flex items-start gap-2 text-sm shadow-[2px_2px_0px_0px_rgba(239,68,68,0.2)]">
+            <AlertCircle className="h-5 w-5 shrink-0 text-red-600 mt-0.5" />
+            <div>
+              <p className="font-bold uppercase">Analisis Gagal</p>
+              <p className="text-red-700">{errorMsg}</p>
+            </div>
+          </div>
+        )}
 
         {/* KONDISI 1: JIKA BELUM ADA FILE (AREA DROPZONE) */}
         {!file ? (
@@ -53,63 +151,97 @@ export default function BaraswaraDashboard() {
                 </div>
                 <div>
                   <p className="font-bold text-lg leading-none">{file.name}</p>
-                  <p className="text-xs text-gray-500 mt-1">Ukuran: {(file.size / 1024).toFixed(2)} KB</p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Ukuran: {(file.size / 1024).toFixed(2)} KB
+                    {analysisResult && (
+                      <span className="font-semibold text-black">
+                        {' '}• Terdeteksi: {analysisResult.file_metadata.total_rows} baris, {analysisResult.file_metadata.total_columns} kolom
+                      </span>
+                    )}
+                  </p>
                 </div>
               </div>
               <button
-                onClick={() => setFile(null)}
+                onClick={() => {
+                  setFile(null);
+                  setAnalysisResult(null);
+                  setErrorMsg(null);
+                }}
                 className="text-xs text-red-600 font-bold uppercase tracking-wider hover:underline border border-red-200 px-3 py-1 rounded bg-red-50"
               >
                 Ganti Berkas
               </button>
             </div>
 
-            {/* SIMULASI HEURISTIK DATA SEMANTIC CLASSIFICATION */}
-            <div className="space-y-4">
-              <h4 className="font-bold uppercase tracking-wide text-sm text-gray-700 flex items-center gap-2">
-                <Settings className="h-4 w-4 animate-spin-slow" /> Rekomendasi Pemetaan Kolom Otomatis:
-              </h4>
+            {/* LOADING STATE */}
+            {isLoading && (
+              <div className="p-12 text-center space-y-3">
+                <RefreshCw className="mx-auto h-8 w-8 text-gray-500 animate-spin" />
+                <p className="text-sm font-bold text-gray-500 uppercase tracking-wide">Menganalisis Karakteristik Statistik Data...</p>
+              </div>
+            )}
 
-              <div className="border border-gray-200 rounded-lg divide-y divide-gray-100 overflow-hidden">
-                {/* Contoh Kolom ID */}
-                <div className="p-4 bg-gray-50 flex justify-between items-center">
-                  <div>
-                    <span className="font-mono bg-gray-200 text-gray-800 px-1.5 py-0.5 rounded text-xs font-bold mr-2">NISN</span>
-                    <span className="text-sm text-gray-600">Terdeteksi: <strong className="text-amber-700">Unique Identifier (ID)</strong></span>
-                  </div>
-                  <span className="text-xs bg-amber-100 text-amber-800 px-2 py-1 rounded font-bold uppercase">Diabaikan Otomatis</span>
-                </div>
+            {/* REKOMENDASI HASIL ANALISIS */}
+            {analysisResult && (
+              <div className="space-y-4">
+                <h4 className="font-bold uppercase tracking-wide text-sm text-gray-700 flex items-center gap-2">
+                  <Settings className="h-4 w-4" /> Rekomendasi Pemetaan Kolom Otomatis:
+                </h4>
 
-                {/* Contoh Kolom Numerik */}
-                <div className="p-4 bg-white flex justify-between items-center">
-                  <div>
-                    <span className="font-mono bg-gray-200 text-gray-800 px-1.5 py-0.5 rounded text-xs font-bold mr-2">Nilai_Ujian</span>
-                    <span className="text-sm text-gray-600">Terdeteksi: <strong className="text-blue-700">Continuous Numeric</strong></span>
-                  </div>
-                  <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded font-bold uppercase">Mekanisme Laplace</span>
-                </div>
-
-                {/* Contoh Kolom Kategori */}
-                <div className="p-4 bg-white flex justify-between items-center">
-                  <div>
-                    <span className="font-mono bg-gray-200 text-gray-800 px-1.5 py-0.5 rounded text-xs font-bold mr-2">Ikut_Les</span>
-                    <span className="text-sm text-gray-600">Terdeteksi: <strong className="text-green-700">Boolean / Binary</strong></span>
-                  </div>
-                  <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded font-bold uppercase">Randomized Response</span>
+                <div className="border border-gray-200 rounded-lg divide-y divide-gray-100 overflow-hidden shadow-sm">
+                  {analysisResult.schema_recommendation.map((col, idx) => (
+                    <div
+                      key={idx}
+                      className={`p-4 flex flex-col md:flex-row md:items-center justify-between gap-3 ${
+                        idx % 2 === 0 ? 'bg-gray-50' : 'bg-white'
+                      }`}
+                    >
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono bg-gray-200 text-gray-800 px-2 py-0.5 rounded text-xs font-bold">
+                            {col.column_name}
+                          </span>
+                          {col.missing_values > 0 && (
+                            <span className="text-[10px] bg-red-100 text-red-800 px-1.5 py-0.5 rounded font-semibold">
+                              ⚠️ {col.missing_values} Sel Kosong
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-gray-500">
+                          Tipe Semantik:{' '}
+                          <strong className={getSemanticColor(col.semantic_type)}>
+                            {col.semantic_type}
+                          </strong>
+                        </p>
+                      </div>
+                      <div className="flex items-center">
+                        {getActionBadge(col.recommended_action)}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
-            </div>
+            )}
 
             {/* NOTIFIKASI HUMAN-IN-THE-LOOP (HITL) */}
-            <div className="bg-amber-50 border border-amber-200 text-amber-900 p-4 rounded text-xs space-y-1">
-              <p className="font-bold uppercase flex items-center gap-1">⚠️ Konfirmasi Manusia Diperlukan (HITL Paradigm)</p>
-              <p className="text-gray-700">
-                Silakan periksa rekomendasi pemetaan di atas sebelum menekan tombol generator. Pastikan tidak ada kebutaan konteks (context blindness) pada data unik sekolah Anda.
-              </p>
-            </div>
+            {!isLoading && (
+              <div className="bg-amber-50 border border-amber-200 text-amber-900 p-4 rounded text-xs space-y-1">
+                <p className="font-bold uppercase flex items-center gap-1">⚠️ Konfirmasi Manusia Diperlukan (HITL Paradigm)</p>
+                <p className="text-gray-700">
+                  Silakan periksa rekomendasi pemetaan di atas sebelum menekan tombol generator. Pastikan tidak ada kebutaan konteks (context blindness) pada data unik sekolah Anda.
+                </p>
+              </div>
+            )}
 
             {/* ACTION BUTTON */}
-            <button className="w-full bg-black text-white py-3.5 rounded font-bold flex items-center justify-center gap-2 hover:bg-gray-800 transition-colors uppercase tracking-wider text-sm shadow-[2px_2px_0px_0px_rgba(0,0,0,0.2)]">
+            <button
+              disabled={isLoading || !analysisResult}
+              className={`w-full py-3.5 rounded font-bold flex items-center justify-center gap-2 uppercase tracking-wider text-sm shadow-[2px_2px_0px_0px_rgba(0,0,0,0.2)] transition-colors ${
+                isLoading || !analysisResult
+                  ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                  : 'bg-black text-white hover:bg-gray-800'
+              }`}
+            >
               <ShieldCheck className="h-5 w-5" />
               Simpan & Bangun Pipeline API Aman
             </button>

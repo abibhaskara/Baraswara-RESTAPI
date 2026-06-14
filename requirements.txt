@@ -6,8 +6,10 @@ fastapi==0.136.3
 h11==0.16.0
 idna==3.16
 numpy==2.4.6
+pandas>=2.2.0
 pydantic==2.13.4
 pydantic_core==2.46.4
+python-multipart>=0.0.9
 starlette==1.1.0
 typing-inspection==0.4.2
 typing_extensions==4.15.0
